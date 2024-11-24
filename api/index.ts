@@ -41,7 +41,6 @@ export default async function (req: VercelRequest, res: VercelResponse) {
         .map(
           (url) => `
       <item>
-        <title>${url}</title>
         <link>${url}</link>
         <guid>${url}</guid>
       </item>`
