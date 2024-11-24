@@ -5,6 +5,7 @@ export default async function (req: VercelRequest, res: VercelResponse) {
     const params = new URL(req.url || "/", "http://localhost").searchParams;
     // Get parameters from query
     const targetUrl = params.get("url");
+    const proxyUrl = params.get("proxyUrl") ?? "";
 
     if (!targetUrl) {
       res.writeHead(400);
@@ -31,17 +32,32 @@ export default async function (req: VercelRequest, res: VercelResponse) {
 
     // Generate RSS feed
     // Function to fetch title from URL
-    async function fetchTitleFromUrl(url: string): Promise<string | null> {
+    async function fetchTitleFromUrl(url: string) {
+      const obj = {
+        url,
+        title: url,
+        guid: url,
+      };
       try {
-        const response = await fetch(url);
-        if (!response.ok) {
-          return null;
+        let response: Response | null = null;
+        const proxiedUrl = `${proxyUrl}${url}`;
+
+        // try proxied url first
+        if (proxyUrl !== "") {
+          response = await fetch(proxiedUrl);
+        }
+        // fall back to original url
+        if (!response?.ok) {
+          response = await fetch(url);
+        } else {
+          obj.url = proxiedUrl;
         }
         const text = await response.text();
         const titleMatch = text.match(/<title[^>]*>([^<]+)<\/title>/i);
-        return titleMatch?.[1] || url;
+        obj.title = titleMatch?.[1] ?? url;
+        return obj;
       } catch {
-        return null;
+        return obj;
       }
     }
 
@@ -49,10 +65,7 @@ export default async function (req: VercelRequest, res: VercelResponse) {
     const urlsWithTitles = await Promise.all(
       urls
         .filter((url) => !url.includes(originalUrl))
-        .map(async (url) => ({
-          url,
-          title: await fetchTitleFromUrl(url),
-        }))
+        .map(async (url) => await fetchTitleFromUrl(url))
         .filter(Boolean)
     );
 
@@ -64,11 +77,11 @@ export default async function (req: VercelRequest, res: VercelResponse) {
       <link>${originalUrl}</link>
       ${urlsWithTitles
         .map(
-          ({ url, title }) => `
+          ({ url, title, guid }) => `
       <item>
       <title>${title}</title>
       <link>${url}</link>
-      <guid>${url}</guid>
+      <guid>${guid}</guid>
       </item>`
         )
         .join("")}
