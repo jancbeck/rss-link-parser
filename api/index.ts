@@ -42,23 +42,16 @@ export default async function (req: VercelRequest, res: VercelResponse) {
         let response: Response | null = null;
         const proxiedUrl = `${proxyUrl}${url}`;
 
-        // try proxied url first
         if (proxyUrl !== "") {
-          console.log("Fetching proxied url:", proxiedUrl);
-
-          response = await fetch(proxiedUrl);
-        }
-        // fall back to original url
-        if (!response?.ok) {
-          console.log("Falling back to original url:", url);
-
-          response = await fetch(url);
-        } else {
           obj.url = proxiedUrl;
         }
-        const text = await response.text();
-        const titleMatch = text.match(/<title[^>]*>([^<]+)<\/title>/i);
-        obj.title = titleMatch?.[1] ?? url;
+        response = await fetch(url);
+        if (response.ok) {
+          const text = await response.text();
+          const titleRegex = /<title[^>]*>([^<]+)<\/title>/i;
+          const titleMatch = titleRegex.exec(text);
+          obj.title = titleMatch?.[1] ?? url;
+        }
         return obj;
       } catch {
         return obj;
