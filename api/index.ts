@@ -44,10 +44,14 @@ export default async function (req: VercelRequest, res: VercelResponse) {
 
         // try proxied url first
         if (proxyUrl !== "") {
+          console.log("Fetching proxied url:", proxiedUrl);
+
           response = await fetch(proxiedUrl);
         }
         // fall back to original url
         if (!response?.ok) {
+          console.log("Falling back to original url:", url);
+
           response = await fetch(url);
         } else {
           obj.url = proxiedUrl;
