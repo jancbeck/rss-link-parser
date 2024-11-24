@@ -31,14 +31,17 @@ export default async function (req: VercelRequest, res: VercelResponse) {
 
     // Generate RSS feed
     // Function to fetch title from URL
-    async function fetchTitleFromUrl(url: string): Promise<string> {
+    async function fetchTitleFromUrl(url: string): Promise<string | null> {
       try {
         const response = await fetch(url);
+        if (!response.ok) {
+          return null;
+        }
         const text = await response.text();
         const titleMatch = text.match(/<title[^>]*>([^<]+)<\/title>/i);
         return titleMatch?.[1] || url;
       } catch {
-        return url;
+        return null;
       }
     }
 
@@ -50,6 +53,7 @@ export default async function (req: VercelRequest, res: VercelResponse) {
           url,
           title: await fetchTitleFromUrl(url),
         }))
+        .filter(Boolean)
     );
 
     const rss = `<?xml version="1.0" encoding="UTF-8"?>
