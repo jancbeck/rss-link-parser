@@ -30,24 +30,46 @@ export default async function (req: VercelRequest, res: VercelResponse) {
     const description = feedMatch?.[3] ?? `Links extracted from ${targetUrl}`;
 
     // Generate RSS feed
+    // Function to fetch title from URL
+    async function fetchTitleFromUrl(url: string): Promise<string> {
+      try {
+        const response = await fetch(url);
+        const text = await response.text();
+        const titleMatch = text.match(/<title[^>]*>([^<]+)<\/title>/i);
+        return titleMatch?.[1] || url;
+      } catch {
+        return url;
+      }
+    }
+
+    // Fetch titles for all URLs
+    const urlsWithTitles = await Promise.all(
+      urls
+        .filter((url) => !url.includes(originalUrl))
+        .map(async (url) => ({
+          url,
+          title: await fetchTitleFromUrl(url),
+        }))
+    );
+
     const rss = `<?xml version="1.0" encoding="UTF-8"?>
-  <rss version="2.0">
+    <rss version="2.0">
     <channel>
       <title>${title}</title>
       <description>${description}</description>
       <link>${originalUrl}</link>
-      ${urls
-        .filter((url) => !url.includes(originalUrl))
+      ${urlsWithTitles
         .map(
-          (url) => `
+          ({ url, title }) => `
       <item>
-        <link>${url}</link>
-        <guid>${url}</guid>
+      <title>${title}</title>
+      <link>${url}</link>
+      <guid>${url}</guid>
       </item>`
         )
         .join("")}
     </channel>
-  </rss>`;
+    </rss>`;
 
     // Send response
     res.writeHead(200, {
